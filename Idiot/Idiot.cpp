@@ -22,6 +22,8 @@
 //
 //
 // Idiot.cpp : A simple Windows joke
+// 
+// v1.0.1
 //
 
 #include "resource.h"

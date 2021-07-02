@@ -3,6 +3,8 @@
 This is just a super simple 'virus' for trolling Windows users.
 It is just a joke! It does not do anything harmful, it just displays a lot of windows, and that's all.
 
+This is desktop (Win32) version of this joke, originally it appeared at <http://youareanidiot.org>, but it was removed later. You can still see the original version on Web Archive: <https://web.archive.org/web/20040804124508/http://www.youareanidiot.org/>. To try it, you need to enable Flash player and disable Pop-up Blocker.
+
 ![idiot](https://user-images.githubusercontent.com/83636769/124245323-2d470e80-db20-11eb-9631-8a525cf0bf5c.png)
 
 **Warning:** Before launching this app, you should first know how to terminate it (through Task Manager).

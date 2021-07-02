@@ -5,6 +5,8 @@ It is just a joke! It does not do anything harmful, it just displays a lot of wi
 
 ![idiot](https://user-images.githubusercontent.com/83636769/124245323-2d470e80-db20-11eb-9631-8a525cf0bf5c.png)
 
+**Warning:** Before launching this app, you should first know how to terminate it (through Task Manager).
+
 **Disclaimer:** You use this software on your own responsibility, see License
 
 # License (MIT)

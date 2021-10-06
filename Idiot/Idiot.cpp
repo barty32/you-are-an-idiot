@@ -23,7 +23,7 @@
 //
 // Idiot.cpp : A simple Windows joke
 // 
-// v1.0.1
+// v1.1.0
 //
 
 #include "resource.h"
@@ -38,27 +38,77 @@
 
 #define WINDOW_WIDTH 300
 #define WINDOW_HEIGHT 225
+#define FLASH_TICKS 25
+#define SPAWN_NEW_WINDOWS 4
 
 // Forward declarations of functions included in this code module:
-BOOL             CreateNewWindow(HINSTANCE hInstance, int nCmdShow);
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-
-
-// Global Variables:
-int offsetsX[4096];
-int offsetsY[4096];
-BOOL blacks[4096];
+void    CALLBACK WindowTimerProc(HWND hWnd, UINT message, UINT_PTR nTimerID, DWORD nMillis);
 
 HIMAGELIST himlIdiot;
 
-UINT nTimers = 0;
+class IdiotWindow{
+public:
+	int offsetX = 5;
+	int offsetY = 5;
+	bool black = false;
+	const bool firstRun;
+	int flashTimer = rand() % FLASH_TICKS;
+	HWND hWnd = nullptr;
+	const HINSTANCE hInst = GetModuleHandleW(nullptr);
 
+	IdiotWindow(bool firstRun = false);
+	INT Draw();
+};
+
+
+IdiotWindow::IdiotWindow(bool firstRun):firstRun(firstRun){
+	DWORD dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_POPUPWINDOW;
+
+	RECT size = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+	AdjustWindowRect(&size, dwStyle, FALSE);
+
+	hWnd = CreateWindowExW(0,
+		L"IdiotWindowClass",
+		L"You Are An Idiot",
+		dwStyle,
+		rand() % GetSystemMetrics(SM_CXSCREEN),
+		rand() % GetSystemMetrics(SM_CYSCREEN),
+		size.right - size.left,
+		size.bottom - size.top,
+		NULL,
+		NULL,
+		hInst,
+		NULL
+	);
+
+	if(!hWnd){
+		delete this;
+	}
+
+	SetPropW(hWnd, L"ClassPointer", this);
+
+	ShowWindow(hWnd, firstRun ? SW_SHOWMAXIMIZED : SW_SHOWNOACTIVATE);
+	UpdateWindow(hWnd);
+
+	SetTimer(hWnd, (UINT_PTR)this, 10, WindowTimerProc);
+	PlaySoundW(MAKEINTRESOURCEW(IDR_IDIOT), hInst, SND_LOOP | SND_ASYNC | SND_RESOURCE | SND_NOSTOP);
+}
+
+INT IdiotWindow::Draw(){
+	PAINTSTRUCT ps;
+	HDC hdc = BeginPaint(hWnd, &ps);
+	//draw background image
+	ImageList_Draw(himlIdiot, black, hdc, 0, 0, ILD_IMAGE);
+	EndPaint(hWnd, &ps);
+	return 0;
+}
 
 INT APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow){
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	InitCommonControls();
+	//InitCommonControls();
 
 	// Specify seed for rand() functions
 	srand((UINT)time(0));
@@ -76,13 +126,6 @@ INT APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	wcex.lpszClassName = L"IdiotWindowClass";
 	RegisterClassExW(&wcex);
 
-	// Initialize memory
-	for(int i = 0; i < 4096; i++){
-		offsetsX[i] = 5;
-		offsetsY[i] = 5;
-		blacks[i] = 0;
-	}
-
 	// Load images
 	HANDLE imageWhite = LoadImageW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(IDI_IDIOT_WHITE), IMAGE_ICON, 0, 0, 0);
 	HANDLE imageBlack = LoadImageW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(IDI_IDIOT_BLACK), IMAGE_ICON, 0, 0, 0);
@@ -93,9 +136,7 @@ INT APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	ImageList_AddIcon(himlIdiot, (HICON)imageBlack);
 
 	// Create first window
-	if(!CreateNewWindow(hInstance, nCmdShow)){
-		return FALSE;
-	}
+	new IdiotWindow(true);
 
 	MSG msg;
 	// Main message loop:
@@ -104,39 +145,6 @@ INT APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		DispatchMessageW(&msg);
 	}
 	return (int)msg.wParam;
-}
-
-
-BOOL CreateNewWindow(HINSTANCE hInstance, int nCmdShow){
-
-   DWORD dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_POPUPWINDOW;
-
-   RECT size = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
-   AdjustWindowRect(&size, dwStyle, FALSE);
-
-   HWND hWnd = CreateWindowExW(
-		0,
-		L"IdiotWindowClass",
-		L"You Are In Idiot",
-		dwStyle,
-		rand() % GetSystemMetrics(SM_CXSCREEN),
-		rand() % GetSystemMetrics(SM_CYSCREEN),
-		size.right - size.left,
-		size.bottom - size.top, 
-		NULL, 
-		NULL, 
-		hInstance, 
-		NULL
-	);
-
-   if(!hWnd){
-	  return FALSE;
-   }
-
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
-
-   return TRUE;
 }
 
 // Create new negative offset
@@ -152,82 +160,69 @@ INT newPositive(){
 
 // Window procedure
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
-	static BOOL bInternalBlackState = 0;
+	IdiotWindow* WindowPtr = (IdiotWindow*)GetPropW(hWnd, L"ClassPointer");
 	switch (message){
-		case WM_CREATE:
-		{
-			nTimers++;
-			//flash background timer, odd numbers
-			SetTimer(hWnd, nTimers, 500, NULL);
-			nTimers++;
-			//move window timer, even numbers
-			SetTimer(hWnd, nTimers, 1, NULL);
-			PlaySoundW(MAKEINTRESOURCEW(IDR_IDIOT), GetModuleHandleW(NULL), SND_LOOP | SND_ASYNC | SND_RESOURCE | SND_NOSTOP);
-			break;
-		}
-		case WM_TIMER:
-		{
-			// Odd numbers
-			if(wParam % 2){
-				blacks[wParam] = !blacks[wParam];
-				bInternalBlackState = blacks[wParam];
-				InvalidateRect(hWnd, NULL, TRUE);
-			}
-			// Even numbers
-			else if(!(wParam % 2)){
-
-				//get current window position
-				RECT windowRect;
-				GetWindowRect(hWnd, &windowRect);
-				static int wWidth = windowRect.right - windowRect.left;
-				static int wHeight = windowRect.bottom - windowRect.top;
-
-				//if window reaches edge of screen generate new offset
-				if(windowRect.left > GetSystemMetrics(SM_CXSCREEN) - wWidth){
-					offsetsX[wParam] = newNegative();
-				}
-				if(windowRect.left < 0){
-					offsetsX[wParam] = newPositive();
-				}
-				if(windowRect.top > GetSystemMetrics(SM_CYSCREEN) - wHeight){
-					offsetsY[wParam] = newNegative();
-				}
-				if(windowRect.top < 0){
-					offsetsY[wParam] = newPositive();
-				}
-
-				//add offset to current window position
-				windowRect.left += offsetsX[wParam];
-				windowRect.top += offsetsY[wParam];
-
-				//move window
-				MoveWindow(hWnd, windowRect.left, windowRect.top, wWidth, wHeight, FALSE);
-			}
-		}
-		break;
 		case WM_PAINT:
-		{
-			PAINTSTRUCT ps;
-			HDC hdc = BeginPaint(hWnd, &ps);
-			//draw background image
-			ImageList_Draw(himlIdiot, bInternalBlackState, hdc, 0, 0, ILD_IMAGE);
-			EndPaint(hWnd, &ps);
-		}
-		break;
+			return WindowPtr->Draw();
+		case WM_CLOSE:
+			// On close open new 4 windows
+			for(int i = 0; i < SPAWN_NEW_WINDOWS; i++){
+				new IdiotWindow;
+			}
+			if(WindowPtr->firstRun){
+				delete WindowPtr;
+			}
+			return 0;
 		case WM_DESTROY:
-		{
-			//on close open new 4 windows
-			CreateNewWindow(GetModuleHandle(NULL), SW_SHOWNOACTIVATE);
-			CreateNewWindow(GetModuleHandle(NULL), SW_SHOWNOACTIVATE);
-			CreateNewWindow(GetModuleHandle(NULL), SW_SHOWNOACTIVATE);
-			CreateNewWindow(GetModuleHandle(NULL), SW_SHOWNOACTIVATE);
-
-			//don't quit the process
-			//PostQuitMessage(0);
-		}
-		break;
+			PostQuitMessage(0);
+			break;
 		default:
 			return DefWindowProcW(hWnd, message, wParam, lParam);
 	}
 	return DefWindowProcW(hWnd, message, wParam, lParam);
+}
+
+
+
+void CALLBACK WindowTimerProc(HWND hWnd, UINT message, UINT_PTR nTimerID, DWORD nMillis){
+
+	IdiotWindow* WindowPtr = (IdiotWindow*)nTimerID;
+	if(!WindowPtr->firstRun){
+		//get current window position
+		RECT windowRect;
+		GetWindowRect(hWnd, &windowRect);
+
+		int wWidth = windowRect.right - windowRect.left;
+		int wHeight = windowRect.bottom - windowRect.top;
+
+		//if window reaches edge of screen generate new offset
+		if(windowRect.left > GetSystemMetrics(SM_CXSCREEN) - wWidth){
+			WindowPtr->offsetX = newNegative();
+		}
+		if(windowRect.left < 0){
+			WindowPtr->offsetX = newPositive();
+		}
+		if(windowRect.top > GetSystemMetrics(SM_CYSCREEN) - wHeight){
+			WindowPtr->offsetY = newNegative();
+		}
+		if(windowRect.top < 0){
+			WindowPtr->offsetY = newPositive();
+		}
+
+		//add offset to current window position
+		windowRect.left += WindowPtr->offsetX;
+		windowRect.top += WindowPtr->offsetY;
+
+		//move window
+		MoveWindow(hWnd, windowRect.left, windowRect.top, wWidth, wHeight, FALSE);
+	}
+
+	WindowPtr->flashTimer++;
+	if(WindowPtr->flashTimer > FLASH_TICKS){
+		WindowPtr->flashTimer = 0;
+		WindowPtr->black = !WindowPtr->black;
+		InvalidateRect(WindowPtr->hWnd, nullptr, TRUE);
+	}
+
+	
 }

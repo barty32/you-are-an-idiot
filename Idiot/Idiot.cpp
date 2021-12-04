@@ -9,7 +9,7 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions :
 // 
-// The above copyright noticeand this permission notice shall be included in all
+// The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
 // 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -52,7 +52,7 @@ public:
 	int offsetX = 5;
 	int offsetY = 5;
 	bool black = false;
-	const bool firstRun;
+	bool firstRun;
 	int flashTimer = rand() % FLASH_TICKS;
 	HWND hWnd = nullptr;
 	const HINSTANCE hInst = GetModuleHandleW(nullptr);
@@ -83,12 +83,12 @@ IdiotWindow::IdiotWindow(bool firstRun):firstRun(firstRun){
 	);
 
 	if(!hWnd){
-		delete this;
+		throw;
 	}
 
 	SetPropW(hWnd, L"ClassPointer", this);
 
-	ShowWindow(hWnd, firstRun ? SW_SHOWMAXIMIZED : SW_SHOWNOACTIVATE);
+	ShowWindow(hWnd, firstRun ? SW_SHOWNORMAL : SW_SHOWNOACTIVATE);//SW_SHOWMAXIMIZED
 	UpdateWindow(hWnd);
 
 	SetTimer(hWnd, (UINT_PTR)this, 10, WindowTimerProc);
@@ -109,6 +109,14 @@ INT APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
 	//InitCommonControls();
+	//wprintf(L"hello, %s", lpCmdLine);
+	//int num = 0;
+	//LPWSTR* t = CommandLineToArgvW(lpCmdLine, &num);
+	//for(int i = 0; i < num; i++){
+	//	MessageBoxW(nullptr, t[i], L"hello", 0);
+	//}
+	//
+	//return 0;
 
 	// Specify seed for rand() functions
 	srand((UINT)time(0));
@@ -116,13 +124,13 @@ INT APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	// Register window class
 	WNDCLASSEXW wcex = {0};
 	wcex.cbSize = sizeof(WNDCLASSEXW);
-	wcex.style = CS_HREDRAW | CS_VREDRAW;
+	//wcex.style = CS_HREDRAW | CS_VREDRAW;
 	wcex.lpfnWndProc = WndProc;
 	wcex.hInstance = hInstance;
-	wcex.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_IDIOT));
-	wcex.hIconSm = wcex.hIcon;
-	wcex.hCursor = LoadCursorW(NULL, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	//wcex.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_IDIOT));
+	//wcex.hIconSm = wcex.hIcon;
+	//wcex.hCursor = LoadCursorW(NULL, IDC_ARROW);
+	//wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszClassName = L"IdiotWindowClass";
 	RegisterClassExW(&wcex);
 
@@ -157,6 +165,22 @@ INT newPositive(){
 	return ((int)ceil((7.0 * ((double)(rand()) / 32768.0)))) * 5 - 10;
 }
 
+//HINSTANCE WINAPI startWindow(HWND hWnd){
+//	//new IdiotWindow(hInst, );
+//	//Sleep(rand() % 500);
+//	
+//	//PlaySoundW(MAKEINTRESOURCEW(IDR_IDIOT), GetModuleHandle(nullptr), SND_LOOP | SND_RESOURCE | SND_SYNC | SND_NOSTOP);
+//
+//	//system("wscript /b playsound.vbs");
+//	//WinExec("wscript /b playsound.vbs", SW_NORMAL);
+//	return ShellExecuteW(hWnd, L"open", L"wscript.exe", L"..\\debug\\playsound.vbs", nullptr, SW_NORMAL);
+//
+//
+//	//WaitForSingleObject(wnd->hWnd, 30000);
+//	//Sleep(10000);
+//	//return 0;
+//}
+
 
 // Window procedure
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
@@ -167,17 +191,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
 		case WM_CLOSE:
 			// On close open new 4 windows
 			for(int i = 0; i < SPAWN_NEW_WINDOWS; i++){
-				new IdiotWindow;
+				//new IdiotWindow((HINSTANCE)CreateThread(nullptr, 0, IdiotWindow::IdiotWindow, 0, 0, 0));
+				
+				//CreateThread(nullptr, 0, startWindow, 0, 0, nullptr);
+				IdiotWindow* wnd = new IdiotWindow();
+				//startWindow(wnd->hWnd);
 			}
 			if(WindowPtr->firstRun){
-				delete WindowPtr;
+				//DestroyWindow(WindowPtr->hWnd);
+				ShowWindow(WindowPtr->hWnd, SW_SHOWNORMAL);
+				WindowPtr->firstRun = false;
 			}
 			return 0;
 		case WM_DESTROY:
-			PostQuitMessage(0);
+			//PostQuitMessage(0);
 			break;
-		default:
-			return DefWindowProcW(hWnd, message, wParam, lParam);
 	}
 	return DefWindowProcW(hWnd, message, wParam, lParam);
 }
